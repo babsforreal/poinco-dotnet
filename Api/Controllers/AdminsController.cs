@@ -1,4 +1,5 @@
 using FluentValidation;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Api.Data;
@@ -6,20 +7,19 @@ using Api.Models;
 
 namespace Api.Controllers;
 
-public record CreateAdminRequest(string CompanyId, string Email, string Password);
-
+public record CreateAdminRequest(string Email, string Password);
 public record AdminResponse(string Id, string CompanyId, string Email);
 
 public class CreateAdminRequestValidator : AbstractValidator<CreateAdminRequest>
 {
     public CreateAdminRequestValidator()
     {
-        RuleFor(x => x.CompanyId).NotEmpty();
         RuleFor(x => x.Email).NotEmpty().EmailAddress();
         RuleFor(x => x.Password).MinimumLength(8).WithMessage("Le mot de passe doit contenir au moins 8 caractères");
     }
 }
 
+[Authorize]
 [ApiController]
 [Route("[controller]")]
 public class AdminsController : ControllerBase
@@ -33,10 +33,13 @@ public class AdminsController : ControllerBase
         _validator = validator;
     }
 
+    private string CompanyId => User.FindFirst("companyId")!.Value;
+
     [HttpGet]
     public async Task<IEnumerable<AdminResponse>> GetAll()
     {
         return await _db.Admins
+            .Where(a => a.CompanyId == CompanyId)
             .Select(a => new AdminResponse(a.Id, a.CompanyId, a.Email))
             .ToListAsync();
     }
@@ -54,7 +57,7 @@ public class AdminsController : ControllerBase
 
         var admin = new Admin
         {
-            CompanyId = request.CompanyId,
+            CompanyId = CompanyId,
             Email = request.Email,
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password)
         };

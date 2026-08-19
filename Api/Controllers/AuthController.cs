@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Api.Data;
-using Api.Models;
+using Api.Services;
 
 namespace Api.Controllers;
 
@@ -20,11 +20,13 @@ public class AuthController : ControllerBase
 {
     private readonly PoincoDbContext _db;
     private readonly IConfiguration _config;
+    private readonly TokenService _tokens;
 
-    public AuthController(PoincoDbContext db, IConfiguration config)
+    public AuthController(PoincoDbContext db, IConfiguration config, TokenService tokens)
     {
         _db = db;
         _config = config;
+        _tokens = tokens;
     }
 
     [HttpPost("login")]
@@ -68,10 +70,10 @@ public class AuthController : ControllerBase
         return NoContent();
     }
 
-    private async Task<TokensResponse> IssueTokens(Admin admin)
+    private async Task<TokensResponse> IssueTokens(Models.Admin admin)
     {
-        var accessToken = GenerateToken(admin, _config["Jwt:AccessSecret"]!, TimeSpan.FromMinutes(15));
-        var refreshToken = GenerateToken(admin, _config["Jwt:RefreshSecret"]!, TimeSpan.FromDays(7));
+        var accessToken = _tokens.GenerateAccessToken(admin);
+        var refreshToken = _tokens.GenerateRefreshToken(admin);
 
         admin.RefreshTokenHash = BCrypt.Net.BCrypt.HashPassword(refreshToken);
         await _db.SaveChangesAsync();
@@ -99,22 +101,5 @@ public class AuthController : ControllerBase
         {
             return null;
         }
-    }
-
-    private static string GenerateToken(Admin admin, string secret, TimeSpan lifetime)
-    {
-        var claims = new[]
-        {
-            new Claim(JwtRegisteredClaimNames.Sub, admin.Id),
-            new Claim("email", admin.Email),
-            new Claim("companyId", admin.CompanyId),
-            new Claim("kind", "admin"),
-        };
-
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret));
-        var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-
-        var token = new JwtSecurityToken(claims: claims, expires: DateTime.UtcNow.Add(lifetime), signingCredentials: creds);
-        return new JwtSecurityTokenHandler().WriteToken(token);
     }
 }
