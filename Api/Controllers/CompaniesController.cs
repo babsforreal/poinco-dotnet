@@ -76,7 +76,7 @@ public class CompaniesController : ControllerBase
 
         var accessToken = _tokens.GenerateAccessToken(admin);
         var refreshToken = _tokens.GenerateRefreshToken(admin);
-        admin.RefreshTokenHash = BCrypt.Net.BCrypt.HashPassword(refreshToken);
+        admin.RefreshTokenHash = TokenService.HashRefreshToken(refreshToken);
 
         await _db.SaveChangesAsync();
 

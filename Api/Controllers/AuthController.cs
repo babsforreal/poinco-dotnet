@@ -49,8 +49,7 @@ public class AuthController : ControllerBase
         var adminId = principal.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
         var admin = await _db.Admins.FindAsync(adminId);
 
-        if (admin is null || admin.RefreshTokenHash is null ||
-            !BCrypt.Net.BCrypt.Verify(request.RefreshToken, admin.RefreshTokenHash))
+        if (admin is null || !TokenService.VerifyRefreshToken(request.RefreshToken, admin.RefreshTokenHash))
             return Unauthorized();
 
         return await IssueTokens(admin);
@@ -75,7 +74,7 @@ public class AuthController : ControllerBase
         var accessToken = _tokens.GenerateAccessToken(admin);
         var refreshToken = _tokens.GenerateRefreshToken(admin);
 
-        admin.RefreshTokenHash = BCrypt.Net.BCrypt.HashPassword(refreshToken);
+        admin.RefreshTokenHash = TokenService.HashRefreshToken(refreshToken);
         await _db.SaveChangesAsync();
 
         return new TokensResponse(accessToken, refreshToken);
