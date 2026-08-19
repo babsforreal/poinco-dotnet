@@ -4,7 +4,8 @@ using Xunit;
 
 namespace Api.Tests;
 
-public record SignupResponseDto(object Company, string AccessToken, string RefreshToken);
+public record CompanyDto(string Id, string Name, string Slug, string Timezone, int ClockOffsetMinutes);
+public record SignupResponseDto(CompanyDto Company, string AccessToken, string RefreshToken);
 public record EmployeeDto(string Id, string CompanyId, string Name);
 
 public class TenantIsolationTests : IClassFixture<PoincoWebApplicationFactory>, IAsyncLifetime
