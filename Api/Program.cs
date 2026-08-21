@@ -7,6 +7,20 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
+if (builder.Environment.IsProduction())
+{
+    var accessSecret = builder.Configuration["Jwt:AccessSecret"];
+    var refreshSecret = builder.Configuration["Jwt:RefreshSecret"];
+    if (string.IsNullOrWhiteSpace(accessSecret) || accessSecret.StartsWith("REPLACE_VIA_") ||
+        string.IsNullOrWhiteSpace(refreshSecret) || refreshSecret.StartsWith("REPLACE_VIA_"))
+    {
+        throw new InvalidOperationException(
+            "Jwt:AccessSecret et Jwt:RefreshSecret doivent être définis en production (variables " +
+            "d'environnement Jwt__AccessSecret / Jwt__RefreshSecret ou un gestionnaire de secrets). " +
+            "Les valeurs placeholder d'appsettings.json ne sont pas utilisables telles quelles.");
+    }
+}
+
 // Add services to the container.
 
 builder.Services.AddControllers()
