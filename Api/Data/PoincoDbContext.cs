@@ -25,15 +25,20 @@ public class PoincoDbContext : DbContext
         {
             entity.Property(e => e.LastPunchType).HasConversion<string>();
 
-            entity.HasIndex(e => new { e.CompanyId, e.Pin }).IsUnique();
+            // Les filtres incluent [DeletedAt] IS NULL pour matcher le HasQueryFilter
+            // ci-dessous : sans ça, un PIN/numéro/carte libéré par soft-delete reste
+            // bloqué en base alors qu'il n'apparaît plus dans aucune requête normale.
+            entity.HasIndex(e => new { e.CompanyId, e.Pin })
+                  .IsUnique()
+                  .HasFilter("[DeletedAt] IS NULL");
 
             entity.HasIndex(e => new { e.CompanyId, e.EmployeeNumber })
                   .IsUnique()
-                  .HasFilter("[EmployeeNumber] IS NOT NULL");
+                  .HasFilter("[EmployeeNumber] IS NOT NULL AND [DeletedAt] IS NULL");
 
             entity.HasIndex(e => new { e.CompanyId, e.CardUid })
                   .IsUnique()
-                  .HasFilter("[CardUid] IS NOT NULL");
+                  .HasFilter("[CardUid] IS NOT NULL AND [DeletedAt] IS NULL");
 
             entity.HasOne(e => e.Company)
                   .WithMany()

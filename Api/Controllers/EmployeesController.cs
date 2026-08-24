@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Api.Data;
+using Api.Extensions;
 using Api.Models;
 
 namespace Api.Controllers;
@@ -34,13 +35,19 @@ public class EmployeesController : ControllerBase
         _validator = validator;
     }
 
-    private string CompanyId => User.FindFirst("companyId")!.Value;
+    private string CompanyId => User.GetCompanyId();
 
     [HttpGet]
-    public async Task<IEnumerable<EmployeeResponse>> GetAll()
+    public async Task<IEnumerable<EmployeeResponse>> GetAll(int page = 1, int pageSize = 50)
     {
+        pageSize = Math.Clamp(pageSize, 1, 200);
+        page = Math.Max(page, 1);
+
         return await _db.Employees
             .Where(e => e.CompanyId == CompanyId)
+            .OrderBy(e => e.Name)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .Select(e => new EmployeeResponse(e.Id, e.CompanyId, e.Name, e.EmployeeNumber, e.CardUid, e.IsActive, e.LastPunchType, e.LastPunchedAt))
             .ToListAsync();
     }
@@ -49,12 +56,7 @@ public class EmployeesController : ControllerBase
     public async Task<ActionResult<EmployeeResponse>> Create(CreateEmployeeRequest request)
     {
         var validation = await _validator.ValidateAsync(request);
-        if (!validation.IsValid)
-        {
-            foreach (var error in validation.Errors)
-                ModelState.AddModelError(error.PropertyName, error.ErrorMessage);
-            return ValidationProblem(ModelState);
-        }
+        if (validation.ToProblem(this) is { } problem) return problem;
 
         var employee = new Employee
         {
@@ -69,6 +71,6 @@ public class EmployeesController : ControllerBase
         await _db.SaveChangesAsync();
 
         var response = new EmployeeResponse(employee.Id, employee.CompanyId, employee.Name, employee.EmployeeNumber, employee.CardUid, employee.IsActive, employee.LastPunchType, employee.LastPunchedAt);
-        return CreatedAtAction(nameof(GetAll), new { id = employee.Id }, response);
+        return StatusCode(StatusCodes.Status201Created, response);
     }
 }

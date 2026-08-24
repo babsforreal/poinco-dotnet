@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Api.Data;
+using Api.Extensions;
 using Api.Models;
 using Api.Services;
 
@@ -43,7 +44,7 @@ public class CompaniesController : ControllerBase
     [HttpGet("me")]
     public async Task<ActionResult<CompanyResponse>> GetMine()
     {
-        var companyId = User.FindFirst("companyId")!.Value;
+        var companyId = User.GetCompanyId();
         var company = await _db.Companies
             .Where(c => c.Id == companyId)
             .Select(c => new CompanyResponse(c.Id, c.Name, c.Slug, c.Timezone, c.ClockOffsetMinutes))
@@ -56,12 +57,7 @@ public class CompaniesController : ControllerBase
     public async Task<ActionResult<SignupResponse>> Create(CreateCompanyRequest request)
     {
         var validation = await _validator.ValidateAsync(request);
-        if (!validation.IsValid)
-        {
-            foreach (var error in validation.Errors)
-                ModelState.AddModelError(error.PropertyName, error.ErrorMessage);
-            return ValidationProblem(ModelState);
-        }
+        if (validation.ToProblem(this) is { } problem) return problem;
 
         var company = new Company { Name = request.Name, Slug = request.Slug };
         _db.Companies.Add(company);

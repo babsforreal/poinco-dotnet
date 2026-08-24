@@ -34,6 +34,26 @@ public class TokenService
             Encoding.UTF8.GetBytes(actualHash), Encoding.UTF8.GetBytes(storedHash));
     }
 
+    public ClaimsPrincipal? ValidateRefreshToken(string refreshToken)
+    {
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:RefreshSecret"]!));
+        try
+        {
+            return new JwtSecurityTokenHandler().ValidateToken(refreshToken, new TokenValidationParameters
+            {
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = key,
+                ValidateIssuer = false,
+                ValidateAudience = false,
+                ValidateLifetime = true,
+            }, out _);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     public string GenerateAccessToken(Admin admin) =>
         GenerateToken(admin, _config["Jwt:AccessSecret"]!, TimeSpan.FromMinutes(15));
 

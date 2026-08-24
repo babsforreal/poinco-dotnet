@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Api.Data;
+using Api.Extensions;
 using Api.Models;
 
 namespace Api.Controllers;
@@ -33,13 +34,19 @@ public class AdminsController : ControllerBase
         _validator = validator;
     }
 
-    private string CompanyId => User.FindFirst("companyId")!.Value;
+    private string CompanyId => User.GetCompanyId();
 
     [HttpGet]
-    public async Task<IEnumerable<AdminResponse>> GetAll()
+    public async Task<IEnumerable<AdminResponse>> GetAll(int page = 1, int pageSize = 50)
     {
+        pageSize = Math.Clamp(pageSize, 1, 200);
+        page = Math.Max(page, 1);
+
         return await _db.Admins
             .Where(a => a.CompanyId == CompanyId)
+            .OrderBy(a => a.Email)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .Select(a => new AdminResponse(a.Id, a.CompanyId, a.Email))
             .ToListAsync();
     }
@@ -48,12 +55,7 @@ public class AdminsController : ControllerBase
     public async Task<ActionResult<AdminResponse>> Create(CreateAdminRequest request)
     {
         var validation = await _validator.ValidateAsync(request);
-        if (!validation.IsValid)
-        {
-            foreach (var error in validation.Errors)
-                ModelState.AddModelError(error.PropertyName, error.ErrorMessage);
-            return ValidationProblem(ModelState);
-        }
+        if (validation.ToProblem(this) is { } problem) return problem;
 
         var admin = new Admin
         {
@@ -66,6 +68,6 @@ public class AdminsController : ControllerBase
         await _db.SaveChangesAsync();
 
         var response = new AdminResponse(admin.Id, admin.CompanyId, admin.Email);
-        return CreatedAtAction(nameof(GetAll), new { id = admin.Id }, response);
+        return StatusCode(StatusCodes.Status201Created, response);
     }
 }

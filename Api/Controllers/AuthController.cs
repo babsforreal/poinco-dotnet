@@ -1,10 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
 using Api.Data;
 using Api.Services;
 
@@ -19,13 +16,11 @@ public record TokensResponse(string AccessToken, string RefreshToken);
 public class AuthController : ControllerBase
 {
     private readonly PoincoDbContext _db;
-    private readonly IConfiguration _config;
     private readonly TokenService _tokens;
 
-    public AuthController(PoincoDbContext db, IConfiguration config, TokenService tokens)
+    public AuthController(PoincoDbContext db, TokenService tokens)
     {
         _db = db;
-        _config = config;
         _tokens = tokens;
     }
 
@@ -42,7 +37,7 @@ public class AuthController : ControllerBase
     [HttpPost("refresh")]
     public async Task<ActionResult<TokensResponse>> Refresh(RefreshRequest request)
     {
-        var principal = ValidateRefreshToken(request.RefreshToken);
+        var principal = _tokens.ValidateRefreshToken(request.RefreshToken);
         if (principal is null)
             return Unauthorized();
 
@@ -78,27 +73,5 @@ public class AuthController : ControllerBase
         await _db.SaveChangesAsync();
 
         return new TokensResponse(accessToken, refreshToken);
-    }
-
-    private ClaimsPrincipal? ValidateRefreshToken(string token)
-    {
-        var handler = new JwtSecurityTokenHandler();
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:RefreshSecret"]!));
-
-        try
-        {
-            return handler.ValidateToken(token, new TokenValidationParameters
-            {
-                ValidateIssuerSigningKey = true,
-                IssuerSigningKey = key,
-                ValidateIssuer = false,
-                ValidateAudience = false,
-                ValidateLifetime = true,
-            }, out _);
-        }
-        catch
-        {
-            return null;
-        }
     }
 }
