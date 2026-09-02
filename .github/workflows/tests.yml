@@ -9,6 +9,21 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+
+    services:
+      sqlserver:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: Y
+          SA_PASSWORD: ${{ secrets.SA_PASSWORD }}
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P ${{ secrets.SA_PASSWORD }} -C -Q 'SELECT 1' || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
     steps:
       - uses: actions/checkout@v4
 
@@ -22,6 +37,10 @@ jobs:
 
       - name: Build
         run: dotnet build --no-restore --configuration Release
+
+      - name: Set test connection string
+        run: |
+          dotnet user-secrets set "ConnectionStrings:PoincoTest" "Server=localhost,1433;Database=PoincoTest;User Id=sa;Password=${{ secrets.SA_PASSWORD }};TrustServerCertificate=True;" -p Api.Tests/
 
       - name: Test
         run: dotnet test --no-build --configuration Release --verbosity normal
