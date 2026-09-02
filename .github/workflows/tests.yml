@@ -39,5 +39,6 @@ jobs:
         run: dotnet build --no-restore --configuration Release
 
       - name: Set test connection string
+        working-directory: Api.Tests
         run: |
-          dotnet user-secrets set "ConnectionStrings:PoincoTest"
+          dotnet user-secrets set "ConnectionStrings:PoincoTest" "Server=localhost,1433;Database=PoincoTest;User Id=sa;Password=26PROMATRICE@;TrustServerCertificate=True;"
