@@ -4,6 +4,7 @@ using Api.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Api.Migrations
 {
     [DbContext(typeof(PoincoDbContext))]
-    partial class PoincoDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260901132632_FilterAdminEmailIndexBySoftDelete")]
+    partial class FilterAdminEmailIndexBySoftDelete
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -191,8 +194,7 @@ namespace Api.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CompanyId", "PunchedAt")
-                        .IsDescending(false, true);
+                    b.HasIndex("CompanyId");
 
                     b.HasIndex("EmployeeId", "PunchedAt");
 
@@ -247,12 +249,6 @@ namespace Api.Migrations
 
             modelBuilder.Entity("Api.Models.Punch", b =>
                 {
-                    b.HasOne("Api.Models.Company", null)
-                        .WithMany()
-                        .HasForeignKey("CompanyId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
                     b.HasOne("Api.Models.Employee", "Employee")
                         .WithMany("Punches")
                         .HasForeignKey("EmployeeId")

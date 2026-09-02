@@ -3,3 +3,7 @@ obj/
 **/bin/
 **/obj/
 .git/
+
+# Voir .gitignore : source de config ASP.NET Core jamais utilisée ici, à ne pas embarquer dans l'image
+Api/Api.settings.json
+Api/Api.settings.*.json

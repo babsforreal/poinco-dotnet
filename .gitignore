@@ -483,3 +483,9 @@ $RECYCLE.BIN/
 
 
 .claude/
+CLAUDE.md
+
+# Source de config ASP.NET Core par convention de nom d'application (Api.settings*.json) —
+# jamais utilisée par ce repo, mais un secret y atterrirait sans passer par les user-secrets.
+Api/Api.settings.json
+Api/Api.settings.*.json

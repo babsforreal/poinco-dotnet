@@ -1,6 +1,7 @@
 using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Api.Data;
 using Api.Extensions;
@@ -53,6 +54,7 @@ public class CompaniesController : ControllerBase
         return company is null ? NotFound() : company;
     }
 
+    [EnableRateLimiting("auth")]
     [HttpPost]
     public async Task<ActionResult<SignupResponse>> Create(CreateCompanyRequest request)
     {

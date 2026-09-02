@@ -56,12 +56,33 @@ public class PoincoDbContext : DbContext
                 .HasForeignKey(p => p.EmployeeId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            // Punch.CompanyId était une colonne libre : rien en base n'empêchait un punch de
+            // pointer vers une entreprise inexistante (ou de survivre à sa suppression). Pas de
+            // navigation Company sur Punch, donc FK shadow — même Restrict que Employee -> Company.
+            entity.HasOne<Company>()
+                  .WithMany()
+                  .HasForeignKey(p => p.CompanyId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
             entity.HasIndex(p => new { p.EmployeeId, p.PunchedAt });
-            entity.HasIndex(p => p.CompanyId);
+
+            // (CompanyId, PunchedAt DESC) couvre exactement le GetAll de PunchesController
+            // (Where CompanyId + OrderByDescending PunchedAt) : avec le simple index sur
+            // CompanyId, le tri forçait un tri complet des punchs de l'entreprise à chaque page.
+            // Commençant par CompanyId, il sert aussi d'index de couverture pour la FK ci-dessus.
+            entity.HasIndex(p => new { p.CompanyId, p.PunchedAt })
+                  .IsDescending(false, true);
         });
         modelBuilder.Entity<Admin>(entity =>
         {
-            entity.HasIndex(a => a.Email).IsUnique();
+            // Unicité GLOBALE (pas scopée par CompanyId) : AuthController.Login résout l'admin
+            // par email seul, sans tenant dans la requête — scoper l'index rendrait cette
+            // résolution ambiguë entre entreprises. Le filtre, lui, doit matcher le HasQueryFilter
+            // ci-dessous, comme pour les index Employee : sans lui, un email libéré par soft-delete
+            // reste bloqué en base alors qu'il n'apparaît plus dans aucune requête normale.
+            entity.HasIndex(a => a.Email)
+                  .IsUnique()
+                  .HasFilter("[DeletedAt] IS NULL");
             entity.HasQueryFilter(a => a.DeletedAt == null);
         });
     }

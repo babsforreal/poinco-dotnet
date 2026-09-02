@@ -94,6 +94,42 @@ public class AuthTests : IClassFixture<PoincoWebApplicationFactory>, IAsyncLifet
         Assert.Equal(HttpStatusCode.Unauthorized, replay.StatusCode);
     }
 
+    // Rejouer un token déjà tourné est un signal de vol : on ne peut pas savoir si c'est la
+    // victime ou l'attaquant qui rejoue, donc la chaîne ENTIÈRE est coupée — y compris le token
+    // qui avait légitimement remplacé celui rejoué. Sans ça, un attaquant qui rejoue une copie
+    // volée se voyait refuser l'accès mais laissait la session en cours intacte, et une session
+    // effectivement compromise pouvait survivre indéfiniment à sa propre détection.
+    [Fact]
+    public async Task Refresh_WithAlreadyRotatedToken_RevokesTheWholeChain()
+    {
+        var signup = await SignupAsync("admin@a.com");
+
+        var firstRefresh = await _client.PostAsJsonAsync("/auth/refresh", new { refreshToken = signup.RefreshToken });
+        firstRefresh.EnsureSuccessStatusCode();
+        var rotated = await firstRefresh.Content.ReadFromJsonAsync<AuthTokensDto>();
+
+        var replay = await _client.PostAsJsonAsync("/auth/refresh", new { refreshToken = signup.RefreshToken });
+        Assert.Equal(HttpStatusCode.Unauthorized, replay.StatusCode);
+
+        // Le token rotationné était valide juste avant le rejeu ; il ne doit plus l'être après.
+        var afterReplay = await _client.PostAsJsonAsync("/auth/refresh", new { refreshToken = rotated!.RefreshToken });
+        Assert.Equal(HttpStatusCode.Unauthorized, afterReplay.StatusCode);
+    }
+
+    // Les deux secrets de signature sont distincts et seul l'access secret est enregistré auprès
+    // du handler bearer : présenter un refresh token là où un access token est attendu doit
+    // échouer à la validation de signature, pas seulement "par convention".
+    [Fact]
+    public async Task RefreshToken_UsedAsBearerOnProtectedEndpoint_IsRejected()
+    {
+        var signup = await SignupAsync("admin@a.com");
+
+        _client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", signup.RefreshToken);
+        var me = await _client.GetAsync("/companies/me");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, me.StatusCode);
+    }
+
     [Fact]
     public async Task Refresh_WithGarbageToken_IsRejected()
     {
